@@ -1,0 +1,125 @@
+{
+  "name": "Lead Sniper - GitHub High-Value Leads",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "github-star",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "url": "https://api.github.com/users/{{$json[\"sender\"][\"login\"]}}",
+        "options": {},
+        "authentication": "headerAuth",
+        "headerAuth": {
+          "name": "Authorization",
+          "value": "token YOUR_GITHUB_PERSONAL_ACCESS_TOKEN"
+        },
+        "responseFormat": "json",
+        "resolveJson": true
+      },
+      "name": "Fetch User Profile",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 2,
+      "position": [500, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{$json[\"followers\"]}}",
+              "operation": "greater",
+              "value2": 100
+            },
+            {
+              "value1": "={{$json[\"public_repos\"]}}",
+              "operation": "greater",
+              "value2": 50
+            }
+          ]
+        }
+      },
+      "name": "High-Value Lead Filter",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [750, 300]
+    },
+    {
+      "parameters": {
+        "model": "gpt-3.5-turbo",
+        "temperature": 0.7,
+        "maxTokens": 100,
+        "input": "Analyze this GitHub user profile:\nName: {{$json[\"name\"]}}\nCompany: {{$json[\"company\"]}}\nBio: {{$json[\"bio\"]}}\n\nGenerate a 1-sentence sales pitch on why we should reach out to them."
+      },
+      "name": "AI Sales Pitch",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 1,
+      "position": [1000, 250]
+    },
+    {
+      "parameters": {
+        "webhookUrl": "YOUR_SLACK_WEBHOOK_URL",
+        "text": "*High-Value Lead Alert!*\nName: {{$json[\"name\"]}}\nGitHub: https://github.com/{{$json[\"login\"]}}\nCompany: {{$json[\"company\"]}}\nBio: {{$json[\"bio\"]}}\nPitch: {{$json[\"choices\"][0][\"message\"][\"content\"]}}\nFollowers: {{$json[\"followers\"]}}\nPublic Repos: {{$json[\"public_repos\"]}}"
+      },
+      "name": "Send to Slack",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 1,
+      "position": [1250, 300]
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Fetch User Profile",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch User Profile": {
+      "main": [
+        [
+          {
+            "node": "High-Value Lead Filter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "High-Value Lead Filter": {
+      "main": [
+        [],
+        [
+          {
+            "node": "AI Sales Pitch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Sales Pitch": {
+      "main": [
+        [
+          {
+            "node": "Send to Slack",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}
